@@ -31,10 +31,16 @@ async function initDriver() {
   if (!driver) {
     console.log("⚡ Starting Appium session...");
     driver = await wdio.remote(opts);
+  } else {
+    try {
+      await driver.getPageSource(); // sanity check
+    } catch (err) {
+      console.log("♻️ Restarting dead Appium session...");
+      driver = await wdio.remote(opts);
+    }
   }
   return driver;
 }
-
 // -------------------- Helper Functions --------------------
 async function showClickableItems() {
   const d = await initDriver();
@@ -101,9 +107,14 @@ async function showPageXML() {
 async function checkBalance() {
   const d = await initDriver();
   try {
+    // Make sure app is in foreground
+    await d.activateApp("com.directpayapp");
+
+    // Locate and click balance button
     const checkBalBtn = await d.$("id=com.directpayapp:id/btn_check");
     await checkBalBtn.click();
 
+    // Wait for title & balance fields
     const title = await d.$("id=com.directpayapp:id/title");
     const balance = await d.$("id=com.directpayapp:id/mainbal");
 
@@ -112,11 +123,13 @@ async function checkBalance() {
       balance: await balance.getText(),
     };
 
+    // Close dialog
     const okayBtn = await d.$("id=com.directpayapp:id/okay");
     await okayBtn.click();
 
     return { success: true, data: result };
   } catch (err) {
+    console.error("⚠️ checkBalance error:", err.message);
     return { success: false, error: err.message };
   }
 }
